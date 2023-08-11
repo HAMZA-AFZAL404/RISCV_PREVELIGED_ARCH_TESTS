@@ -1,8 +1,8 @@
 #################################################################################################           
 #                                                                                               #
-# Verification Goal: Set PTE.X= 1 and test the Execute Acces in User mode for Level 0           #
+# Verification Goal: Set PTE.R = 0 and test the Read Acces in User mode for Level 0             #
 #                                                                                               #
-# Description:       There Should be no fault.                                                  #    
+# Description:       Load page fault for read access.                                           #    
 #                                                                                               #
 #################################################################################################
 #                                                                                               #
@@ -48,11 +48,11 @@ main:
     PTE_SETUP_RV32(a0, a1, t0, t1, va, LEVEL1)               # setup the PTE for level1
                                                              # PTE setup for Instruction memory 0x90000000 -> 0x80000000
     LA (a0, pa)                                              # loads the address in a0
-    LI a1, ( PTE_D | PTE_A | PTE_W | PTE_R | PTE_V | PTE_U | PTE_X)  # sets the permission bits (PTE_X == 0)
+    LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U ) # sets the permission bits
     PTE_SETUP_RV32(a0, a1, t0, t1, va, LEVEL0)               # setup the PTE for level1
                                                              # PTE setup for rvtest_data 0x91000000 -> rvtest_data
     LA (a0, rvtest_data)                                     # loads the address of label rvtest_data in a0
-    LI a1, ( PTE_D | PTE_A | PTE_W | PTE_R | PTE_V | PTE_U | PTE_X)  # sets the permission bits 
+    LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_V )       # sets the permission bits (PTE_R == 0)
     PTE_SETUP_RV32(a0, a1, t0, t1, va_data, LEVEL0)          # setup the PTE for level1
     SATP_SETUP_SV32                                          # set the SATP for virtualization
     /* Save Virtual addresses in of Code and Data
