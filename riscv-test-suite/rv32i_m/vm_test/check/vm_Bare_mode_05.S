@@ -1,17 +1,16 @@
 #################################################################################################           
-#                                                                                               #
-# Verification Goal: Set PTE.W = 0 and test the Write Acces in User mode for Level 1            #
-#                                                                                               #
-# Description:       Store page fault for write access.                                         #    
-#                                                                                               #
+#                                                                                             	#   
+# Verification Goal: Set satp register to Bare mode and then try to access Translation 			#
+# for Level 1                                                                                  	#
+#                                                                                            	#
+# Description:       There Should be no fault. (As Va=Pa)                                           	#    
+#                                                                                              	#
 #################################################################################################
 #                                                                                               #
-# Sub Feature:         In-Valid Permission of PTE                                               #                
+# Sub Feature:         Selecting MODE=Bare                                                      #                
 #                                                                                               #   
-# Feature Discription: If PTE belongs to user mode i.e. its U permission bit is set (pte.u = 1),#
-# then accessing that PTE in user mode should be successful if the corresponding (r,w,x)        #
-# permission of PTE is granted. Otherwise raise page fault exception of the                     #
-# corresponding access type.                                                                    #
+# Feature Discription: Show wirting {zero, non-zero} value to satp when mode=bare              	#
+# the behaviour follows the design implemention                                                	#
 #                                                                                               #
 ################################################################################################# 
 #include "model_test.h"
@@ -44,21 +43,19 @@ main:
 #endif
 	
 	ALL_MEM_PMP          								             # set the PMP permissions
-	WRITE_CSR (satp,x0)  								             # write satp with all zeros (bare mode)
+	WRITE_CSR (satp,0x04)  								             # write satp with all zeros (bare mode)
 
-	.set va,      0x90000000
-	.set pa,      0x80000000 
+	.set va,      0x70000000
+	.set pa,      0x70000000 
 	.set va_data, 0x91000000
-                                             				         # PTE setup for Instruction memory 0x90000000 -> 0x80000000
+                                             				         # PTE setup for Instruction memory 0x70000000 -> 0x70000000
 	LA (a0, pa)                                                      # loads the address in a0
-	LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V ) # sets the permission bits
+	LI a1, ( PTE_D | PTE_A | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U ) # sets the permission bits
 	PTE_SETUP_RV32(a0, a1, t0, t1, va, LEVEL1)                       # setup the PTE for level1
 														             # PTE setup for rvtest_data 0x91000000 -> rvtest_data	
 	LA (a0, rvtest_data)                                             # loads the address of label rvtest_data in a0
-	LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_R | PTE_V ) # sets the permission bits (PTE_W == 0)
-	PTE_SETUP_RV32(a0, a1, t0, t1, va_data, LEVEL1)                  # setup the PTE for level1
-
-    SATP_SETUP_SV32                                                  # set the SATP for virtualization
+	LI a1, ( PTE_D | PTE_A | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U )        # sets the permission bits
+	PTE_SETUP_RV32(a0, a1, t0, t1, va_data, LEVEL1)                     # setup the PTE for level1
 
 	/* Save Virtual addresses in of Code and Data 
 	in their respective S-mode save area */
@@ -91,8 +88,7 @@ main:
 	RVTEST_GOTO_LOWER_MODE	Umode		                   # Switching to U mode
 
 vm_en:
-	LA (t0, va_data)
-	SREG x2, 0(t0)
+	LI (t0, 0x40)
 
 	RVTEST_GOTO_MMODE		                               # Switching back to M mode
 	LI (a4, 0x123)

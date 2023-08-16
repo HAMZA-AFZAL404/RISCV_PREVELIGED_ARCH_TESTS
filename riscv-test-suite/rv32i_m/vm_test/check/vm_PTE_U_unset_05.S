@@ -1,6 +1,6 @@
 #################################################################################################           
 #                                                                                               #
-# Verification Goal: Set PTE.R = 0 and test the Read Acces in User mode for Level 0             #
+# Verification Goal: Set PTE.U = 0 and test the Read Acces in User mode for Level 0             #
 #                                                                                               #
 # Description:       Load page fault for read access.                                           #    
 #                                                                                               #
@@ -8,10 +8,8 @@
 #                                                                                               #
 # Sub Feature:         In-Valid Permission of PTE                                               #                
 #                                                                                               #   
-# Feature Discription: If PTE belongs to user mode i.e. its U permission bit is set (pte.u = 1),#
-# then accessing that PTE in user mode should be successful if the corresponding (r,w,x)        #
-# permission of PTE is granted. Otherwise raise page fault exception of the                     #
-# corresponding access type.                                                                    #
+# Feature Discription: If PTE does not have USER (pte.U=0) permission, then accessing it would  #
+#                      raise page fault exception of the corresponding access type.             #
 #                                                                                               #
 ################################################################################################# 
 #include "model_test.h"
@@ -48,11 +46,11 @@ main:
     PTE_SETUP_RV32(a0, a1, t0, t1, va, LEVEL1)               # setup the PTE for level1
                                                              # PTE setup for Instruction memory 0x90000000 -> 0x80000000
     LA (a0, pa)                                              # loads the address in a0
-    LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U ) # sets the permission bits
+    LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V ) # sets the permission bits
     PTE_SETUP_RV32(a0, a1, t0, t1, va, LEVEL0)               # setup the PTE for level1
                                                              # PTE setup for rvtest_data 0x91000000 -> rvtest_data
     LA (a0, rvtest_data)                                     # loads the address of label rvtest_data in a0
-    LI a1, ( PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_V )       # sets the permission bits (PTE_R == 0)
+    LI a1, ( PTE_D | PTE_A | PTE_X | PTE_W | PTE_R | PTE_V )        # sets the permission bits (PTE_U == 0)
     PTE_SETUP_RV32(a0, a1, t0, t1, va_data, LEVEL0)          # setup the PTE for level1
     SATP_SETUP_SV32                                          # set the SATP for virtualization
     /* Save Virtual addresses in of Code and Data
