@@ -1,12 +1,10 @@
 #####################################################################################################
+# Verification Goal: - Remove read PMP permission of translated PA and test the read acces.		 	#
+#					 - For page table 1 and access in user mode.	 								#
+#                    - There should be Store/AMO Access Fault                                       #
 #                                                                                                	#
-# Verification Goal: If PTE does not have (r,w,x) PMP permissions, then accessing it would raise    # 
-#                    Access fault exception should be raised according to {x,r,w} access type.   	#
-#                   - store/AMO access fault for write access.									 	#
-#                                                                                                	#
-# Description:      - Remove write PMP permission of translated PA and test the write access.	 	#
-#					- For page table 1 and access in user mode.	 									#
-#                                                                                                	#
+# Description:       If PTE does not have (r,w,x) PMP permissions, then accessing it would raise 	#
+#					 access fault exception of the corresponding access type. 	 					#
 #####################################################################################################   
 
 #include "model_test.h"
@@ -38,56 +36,59 @@ main:
 	LI a4, 0xbeed
 	RVTEST_SIGUPD(x13,a4)
 #endif
-	
+
 #-------------------Adresses--------------------#
 	.set va,		0x90000000                  #           Page table level 1  VA   
 	.set pa,		0x80000000                  #           rvtest_entry_point physical address
-	.set va_data,	0x91000000                  #           rvtest_data Virtual address set at level 0 
+	.set va_data,	0x90011000                  #           rvtest_data Virtual address set at level 0
+	.set pte_data,	0x90031000             		#
 #-----------------------------------------------#
-
-    LA(t2, pa)                                         
-    srli t2, t2, PMP_SHIFT
-    ori t2, t2, 0x1FF                                           
-    csrw pmpaddr0, t2                                          
-    la t2, rvtest_slvl1_pg_tbl                                             
-    srli t2, t2, PMP_SHIFT 
-    ori t2, t2, 0x1FF                                     
-    csrw pmpaddr1, t2                                          
-    la t2, rvtest_Sroot_pg_tbl                                          
-    srli t2, t2, PMP_SHIFT
-    ori t2, t2, 0x1FF                                     
-    csrw pmpaddr2, t2                                          
-    la t2, rvtest_data                                            
-    srli t2, t2, PMP_SHIFT                                     
-    ori t2, t2, 0                                 
-    csrw pmpaddr3, t2
-    LI(t2, 0x1F1D1F1F)
-    csrw pmpcfg0, t2                                         
-	WRITE_CSR (satp,x0)  								    # Bare Mode setup
-
-#-----------------------------------------------#
-#  PTE setup -- Level 0, supervisor mode		#
-#  No dirty permission						    #
-#-----------------------------------------------#
+    LA(t2, pa)                          					# Loads the address of PA                
+    srli t2, t2, PMP_SHIFT									# Right shift the PA by PMP_Shift(2) 
+    ori t2, t2, 0x1FF                                       # Selects the range of 4kB    
+    WRITE_CSR (pmpaddr0, t2)    	                        # Region 1 for the pmp permissions   
+    LA(t2, rvtest_slvl1_pg_tbl )                            # loads the base address of level1 4kbpage table                 
+    srli t2, t2, PMP_SHIFT 									# Right shift the address of level 1 page table  by PMP_Shift(2)		
+    ori t2, t2, 0x1FF                                       # Selects the range of 4kB
+												 	 										
+    WRITE_CSR (pmpaddr1, t2)                                # Region 2 for the pmp permission  
+    LA( t2, rvtest_Sroot_pg_tbl)                            # loads the base address of root page table               
+    srli t2, t2, PMP_SHIFT									# Right shift the address of root page table by PMP_Shift(2)
+    ori t2, t2, 0x1FF                                     	# Selects the range of 4kB
+  
+    WRITE_CSR ( pmpaddr2, t2)                               # Region 3 for the pmp permission            
+    LA( t2, rvtest_data )                                   # loads the base address of rvtest_data label        
+    srli t2, t2, PMP_SHIFT                                  # Right shift the address of rvtest_data label by PMP_Shift(2)
+    ori t2, t2, 0                                 			# Selects the range of 4kB
+    
+	WRITE_CSR (pmpaddr3, t2)								# Region 4 for the pmp permission
+    LI(t2, 0x1F1D1F1F)										# Region3: NAPOT with no W PMP Permissions, Region1,2,4: NAPOT with RWX PMP Permissions
+    WRITE_CSR (pmpcfg0, t2)                                 # Write PMP Regions Configration          
+	WRITE_CSR (satp,x0)  								    # SATP bare mode
 
 #------------------------------------------------------PTE setup--------------------------------------------------------------
-    #PTE SETUP at level 1 -- rvtest_entry_point physical address stored
-	LI a0, pa
-	LI a1, (PTE_U | PTE_D | PTE_A | PTE_G | PTE_X | PTE_W | PTE_R | PTE_V)  
+    #PTE SETUP at level 1 -- Base address of PGtable stored in the PTE
+	LA a0, rvtest_slvl1_pg_tbl
+    LI a1, (PTE_V)                                          # Valid permission only--> point at level 0 page table
 	PTE_SETUP_RV32(a0, a1, t0, t1, va, 1)
 
-    #PTE SETUP at level 1 -- rvtest_data physical address stored
+    #PTE SETUP at level 0 -- rvtest_entry_point physical address stored
+	LI a0, pa
+	LI a1, (PTE_D | PTE_A | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U)  
+	PTE_SETUP_RV32(a0, a1, t0, t1, va, 0)
+
+    #PTE SETUP at level 0 -- rvtest_data physical address stored
 	LA (a0, rvtest_data)
-	LI a1, (PTE_U | PTE_G | PTE_A | PTE_D | PTE_X | PTE_W | PTE_R | PTE_V)
-	PTE_SETUP_RV32(a0, a1, t0, t1, va_data, 1)
+	LI a1, (PTE_A | PTE_D | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U)
+	PTE_SETUP_RV32(a0, a1, t0, t1, va_data, 0)
 #-----------------------------------------------------------------------------------------------------------------------------
+    #PTE SETUP at level 0 -- rvtest_Sroot_pg_tbl physical address stored
+	LA (a0, rvtest_Sroot_pg_tbl)
+	LI a1, (PTE_A | PTE_D | PTE_X | PTE_W | PTE_R | PTE_V | PTE_U)
+	PTE_SETUP_RV32(a0, a1, t0, t1, pte_data, 0)
 
 #---------------satp mode setup-----------------#
-    LA(t6, rvtest_Sroot_pg_tbl)                 #
-    LI(t5, SATP32_MODE)                         #
-    srli t6, t6, 12                             #
-    or t6, t6, t5                               #
-    csrw satp, t6                               #
+    SATP_SETUP_SV32                             #
 #-----------------------------------------------#
 
 #--------------------------------------------------Save area code-------------------------------------------------------------
@@ -119,24 +120,25 @@ main:
 	sfence.vma
 #-----------------------------------------------------------------------------------------------------------------------------
 
-	RVTEST_GOTO_LOWER_MODE	Umode		                   	# Switching to U mode
+	RVTEST_GOTO_LOWER_MODE	Umode		                   # Switching to U mode
 
 #-----------------------------------------------------------------------------------------------------------------------------
 vm_en:
-	LA (t0, va_data)                                    	# Virtual address of rvtest_data
-	SREG x2, 0(t0)                                          # Write at base address of rvtest_data
+	LA t0,pte_data                                    #Virtual address of rvtest_data
+	SREG x2, 0(t0)                                      #write at base address of rvtest_data
 
-	RVTEST_GOTO_MMODE		                               	# Switching back to M mode
+	RVTEST_GOTO_MMODE		                            # Switching back to M mode
 	LI (a4, 0x123)
 	RVTEST_SIGUPD(x13,a4)
 #endif
+
+
 
 #-----------------------------------------------------------------------------------------------------------------------------
 RVTEST_CODE_END
 RVMODEL_HALT
 RVTEST_DATA_BEGIN
 #-------------------------------------------------rvtest_data section---------------------------------------------------------
-.align 24
 rvtest_data:
 .word 0xbeefcafe
 .word 0xbabecafe

@@ -1,12 +1,10 @@
 #####################################################################################################
-#                                                                                                	#
 # Verification Goal: Access fault exception should be raised according to {x,r,w} access type.   	#
 #                    Checking that m/scause contain the exception number of:                   		#
 #                   - instruction  access fault for execute access.                            	 	#
 #                                                                                                	#
 # Description:      - Remove read PMP permission of translated PA and test the execute access.		#
 #					- Page table 0 and access in supervisor mode.	 								#
-#																									#
 #####################################################################################################
   
 
@@ -65,11 +63,6 @@ main:
     LI(t2, 0x1F1F1F18)
     csrw pmpcfg0, t2                                         
 	WRITE_CSR (satp,x0)  								    # Bare Mode setup
-
-#-----------------------------------------------#
-#  PTE setup -- Level 0, supervisor mode		#
-#  No dirty permission						    #
-#-----------------------------------------------#
 
 #------------------------------------------------------PTE setup--------------------------------------------------------------
     #PTE SETUP at level 1 -- Base address of PGtable stored in the PTE
